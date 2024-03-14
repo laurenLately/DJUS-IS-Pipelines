@@ -1,0 +1,289 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_filesystem_1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedfilesystem_49b15"
+        },
+        "api": {
+          "name": "shared_filesystem"
+        }
+      },
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedsharepointonline_ce551"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_a_file_is_created_(properties_only)": {
+          "recurrence": {
+            "interval": 5,
+            "frequency": "Minute"
+          },
+          "splitOn": "@triggerOutputs()?['body']",
+          "metadata": {
+            "operationMetadataId": "59454d7a-6af1-49ba-ae36-f38dc7d7ffd6"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_filesystem_1",
+              "operationId": "OnNewFiles",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_filesystem"
+            },
+            "parameters": {
+              "folderId": "\\\\ad.dorel.com\\DJUS\\Public\\_JDE_CATAPULTTEST_REPORTS\\R550011A_DJG8001_BATAPVL",
+              "maxFileCount": 10
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Initialize_variable": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "7aa00ea7-09d7-456a-b878-13241ce278e7"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "createArray",
+                "type": "array"
+              }
+            ]
+          }
+        },
+        "Condition_2": {
+          "actions": {
+            "Get_file_content": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "eb3ef596-b06f-45e6-b09b-c1b7121ed5be"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_filesystem_1",
+                  "operationId": "GetFileContent",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_filesystem"
+                },
+                "parameters": {
+                  "id": "@triggerOutputs()?['body/Id']",
+                  "inferContentType": true
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Compose": {
+              "runAfter": {
+                "Get_file_content": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d8d1dfdc-f375-4205-953e-f6b3aa395f6d"
+              },
+              "type": "Compose",
+              "inputs": "@body('Get_file_content')"
+            },
+            "Compose_2": {
+              "runAfter": {
+                "Compose": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "a381f32c-820c-4d96-ae21-59d53a011222"
+              },
+              "type": "Compose",
+              "inputs": "@split(outputs('Compose'),'\r\n')"
+            },
+            "Apply_to_each": {
+              "foreach": "@outputs('Compose_2')",
+              "actions": {
+                "Compose_3": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "918e82dd-84c0-4154-9481-0b6bf2e00b36"
+                  },
+                  "type": "Compose",
+                  "inputs": "@createArray(split(items('Apply_to_each'),','))"
+                },
+                "Select": {
+                  "runAfter": {
+                    "Compose_3": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "4ecc2a98-bad5-4f1b-9c5c-5a406c371f51"
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Compose_3')",
+                    "select": {
+                      "Batch Type": "@item()?[0]",
+                      "Batch Number": "@item()?[1]",
+                      "Approval Date": "@item()?[2]",
+                      "Approval Time": "@item()?[3]",
+                      "Entry User ID": "@item()?[4]",
+                      "Approval User ID": "@item()?[5]"
+                    }
+                  }
+                },
+                "For_each": {
+                  "foreach": "@outputs('Select')['body']",
+                  "actions": {
+                    "Condition": {
+                      "actions": {},
+                      "runAfter": {},
+                      "else": {
+                        "actions": {
+                          "Create_item_copy": {
+                            "runAfter": {
+                              "Parse_JSON": [
+                                "Succeeded"
+                              ]
+                            },
+                            "metadata": {
+                              "operationMetadataId": "1006025c-d56a-415e-918d-ae762073b787"
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PostItem",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+                                "table": "bae386cf-bb7f-4e19-b442-750d0e698bf3",
+                                "item/BatchNumber": "@body('Parse_JSON')?['Batch Number']",
+                                "item/ApprovalDate": "@body('Parse_JSON')?['Approval Date']",
+                                "item/Title": "@body('Parse_JSON')?['Batch Type']",
+                                "item/ApprovalTime": "@body('Parse_JSON')?['Approval Time']",
+                                "item/EntryUserIS": "@body('Parse_JSON')?['Entry User ID']",
+                                "item/ApproverUserID": "@body('Parse_JSON')?['Approval User ID']",
+                                "item/Approved": false,
+                                "item/User_x0020_Name/Value": ""
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          },
+                          "Parse_JSON": {
+                            "runAfter": {},
+                            "metadata": {
+                              "operationMetadataId": "fef163f6-6eef-4a10-b1d1-b6d86d9943c4"
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                              "content": "@items('For_each')",
+                              "schema": {
+                                "type": "object",
+                                "properties": {
+                                  "Batch Type": {
+                                    "type": "string"
+                                  },
+                                  "Batch Number": {
+                                    "type": "string"
+                                  },
+                                  "Approval Date": {
+                                    "type": "string"
+                                  },
+                                  "Approval Time": {
+                                    "type": "string"
+                                  },
+                                  "Entry User ID": {
+                                    "type": "string"
+                                  },
+                                  "Approval User ID": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@item()?['Batch Type']",
+                              ""
+                            ]
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "c48f3b12-72db-4235-8d30-34cfff931a0d"
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "runAfter": {
+                    "Select": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "98dcb936-01f0-48b5-be84-f1a563b8a16d"
+                  },
+                  "type": "Foreach"
+                }
+              },
+              "runAfter": {
+                "Compose_2": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f7f2c3ef-4ac4-47c6-b8bd-265b6cd8d8e4"
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Initialize_variable": [
+              "Succeeded"
+            ]
+          },
+          "expression": {
+            "endsWith": [
+              "@triggerOutputs()?['body/Name']",
+              "csv"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a3151bf7-b8d9-4271-a409-8fb8de75999c"
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

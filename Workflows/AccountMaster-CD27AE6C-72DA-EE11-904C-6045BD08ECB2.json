@@ -1,0 +1,347 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_filesystem_1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedfilesystem_7d159"
+        },
+        "api": {
+          "name": "shared_filesystem"
+        }
+      },
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedsharepointonline_ce551"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_a_file_is_added_or_modified_(properties_only)": {
+          "recurrence": {
+            "interval": 5,
+            "frequency": "Minute"
+          },
+          "splitOn": "@triggerOutputs()?['body']",
+          "metadata": {
+            "operationMetadataId": "b9421aec-a306-4068-b422-cb9cf8a9316e"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_filesystem_1",
+              "operationId": "OnUpdatedFiles",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_filesystem"
+            },
+            "parameters": {
+              "folderId": "\\\\ad.dorel.com\\djus\\public\\_JDE_CATAPULTTEST_REPORTS\\R550901_DJG8001_AUDIT_ACCOUNT_MASTER_TABLE_REPORT",
+              "maxFileCount": 10,
+              "checkBothCreatedAndModifiedDateTime": false
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Initialize_variable": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "853a73f2-d3b9-4c08-92cf-3f1826182a83"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Create Array",
+                "type": "array"
+              }
+            ]
+          }
+        },
+        "Condition_2": {
+          "actions": {
+            "Get_file_content": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "bcfc09db-c2ad-40b1-a3fb-9faeb6022bf7"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_filesystem_1",
+                  "operationId": "GetFileContent",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_filesystem"
+                },
+                "parameters": {
+                  "id": "@triggerOutputs()?['body/Id']",
+                  "inferContentType": true
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Read_File_Content": {
+              "runAfter": {
+                "Get_file_content": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e0900b4f-3e0d-45a1-befd-8120a9cd847c"
+              },
+              "type": "Compose",
+              "inputs": "@body('Get_file_content')"
+            },
+            "Split_Contents_to_Columns": {
+              "runAfter": {
+                "Read_File_Content": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8b36f2e9-b451-4b3d-9e3a-a066effa3f02"
+              },
+              "type": "Compose",
+              "inputs": "@skip(split(outputs('Read_File_Content'),'\r\n'),5)"
+            },
+            "CSV_to_Table": {
+              "foreach": "@outputs('Split_Contents_to_Columns')",
+              "actions": {
+                "Items_to_Map": {
+                  "runAfter": {
+                    "Array_Items": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "f61e2744-b40b-4cc8-8754-d03332232372"
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Array_Items')",
+                    "select": {
+                      "Add/Delete/Change": "@{item()?[0]}",
+                      "Date": "@{item()?[1]}",
+                      "Time": "@{item()?[2]}",
+                      "User ID": "@{item()?[3]}",
+                      "Account": "@{item()?[4]}",
+                      "CO": "@{item()?[5]}",
+                      "Bus Unit": "@{item()?[6]}",
+                      "Obj": "@{item()?[7]}",
+                      "Sub": "@{item()?[8]}",
+                      "Account Description": "@{item()?[9]}",
+                      "LOD": "@{item()?[10]}",
+                      "PEC": "@{item()?[11]}",
+                      "CC 20 State for Tax": "@{item()?[12]}",
+                      "Percentage": "@{item()?[13]}"
+                    }
+                  },
+                  "description": "Replace Map Keys with related fields and the value to the corresponding item from the array"
+                },
+                "For_each": {
+                  "foreach": "@body('Items_to_Map')",
+                  "actions": {
+                    "Condition": {
+                      "actions": {},
+                      "runAfter": {
+                        "Parse_JSON_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "Create_item": {
+                            "runAfter": {},
+                            "metadata": {
+                              "operationMetadataId": "09e4f65e-e390-4ef0-acd0-a59e6ee63627"
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PostItem",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                              },
+                              "parameters": {
+                                "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+                                "table": "7359d7b0-3462-4c8b-8fd3-497fb8901b64",
+                                "item/Add_x002f_Delete_x002f_Change": "@body('Parse_JSON_2')?['Add/Delete/Change']",
+                                "item/Journal_x0020_Date": "@{body('Parse_JSON_2')?['Date']}",
+                                "item/Time": "@{body('Parse_JSON_2')?['Time']}",
+                                "item/UserID": "@{body('Parse_JSON_2')?['User ID']}",
+                                "item/Item_x0023_": "@{body('Parse_JSON_2')?['Account']}",
+                                "item/CO": "@{body('Parse_JSON_2')?['CO']}",
+                                "item/BusUnit": "@{body('Parse_JSON_2')?['Bus Unit']}",
+                                "item/ObjectAcct": "@{body('Parse_JSON_2')?['Obj']}",
+                                "item/Sub": "@{body('Parse_JSON_2')?['Sub']}",
+                                "item/Description": "@{body('Parse_JSON_2')?['Account Description']}",
+                                "item/LOD": "@{body('Parse_JSON_2')?['LOD']}",
+                                "item/PEC": "@{body('Parse_JSON_2')?['PEC']}",
+                                "item/CC20StateforTax": "@{body('Parse_JSON_2')?['CC 20 Sate for Tax']}",
+                                "item/Percentage": "@{body('Parse_JSON_2')?['Percentage']}",
+                                "item/Manager_x0020_Approved": false
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@body('Parse_JSON_2')?['Add/Delete/Change']",
+                              ""
+                            ]
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "93b6faa2-4633-44d6-9f1c-2c76d8a9e6ac"
+                      },
+                      "type": "If"
+                    },
+                    "Parse_JSON_2": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "4f92cf3a-9f1d-4e1a-bdb8-1da07abb5eae"
+                      },
+                      "type": "ParseJson",
+                      "inputs": {
+                        "content": "@items('For_each')",
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "Add/Delete/Change": {
+                              "type": "string"
+                            },
+                            "Date": {
+                              "type": "string"
+                            },
+                            "Time": {
+                              "type": "string"
+                            },
+                            "User ID": {
+                              "type": "string"
+                            },
+                            "Account": {
+                              "type": "string"
+                            },
+                            "CO": {
+                              "type": "string"
+                            },
+                            "Bus Unit": {
+                              "type": "string"
+                            },
+                            "Obj": {
+                              "type": "string"
+                            },
+                            "Sub": {
+                              "type": "string"
+                            },
+                            "Account Description": {
+                              "type": "string"
+                            },
+                            "LOD": {
+                              "type": "string"
+                            },
+                            "PEC": {
+                              "type": "string"
+                            },
+                            "CC 20 State for Tax": {
+                              "type": "string"
+                            },
+                            "CC Description": {
+                              "type": "string"
+                            },
+                            "Percentage": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "Date",
+                            "Time",
+                            "Account",
+                            "CO",
+                            "Bus Unit",
+                            "Obj",
+                            "Sub",
+                            "Account Description",
+                            "LOD",
+                            "PEC",
+                            "CC 20 State for Tax",
+                            "Percentage"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Items_to_Map": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "7449d992-4758-4e88-85ca-e184b0c3374a"
+                  },
+                  "type": "Foreach"
+                },
+                "Array_Items": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "891616fd-0c99-4ab5-b376-835b2061a478"
+                  },
+                  "type": "Compose",
+                  "inputs": "@createArray(split(items('CSV_to_Table'),',')\r\n)"
+                }
+              },
+              "runAfter": {
+                "Split_Contents_to_Columns": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1cb819aa-a4cc-412a-95c2-687002e01a30"
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Initialize_variable": [
+              "Succeeded"
+            ]
+          },
+          "expression": {
+            "endsWith": [
+              "@triggerOutputs()?['body/Name']",
+              "csv"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "0c53ac0e-9247-40eb-9039-48403824cb30"
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

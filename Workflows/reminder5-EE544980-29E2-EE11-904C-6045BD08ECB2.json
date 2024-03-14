@@ -1,0 +1,379 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedsharepointonline_ce551"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedoffice365_ce05c"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "startTime": "2024-03-14T17:00:00Z"
+          },
+          "metadata": {
+            "operationMetadataId": "dba54cb4-5018-4434-a28d-196a20463c9c"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Get_items": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "33b64b4a-469e-4560-93da-1430210f8888"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "7359d7b0-3462-4c8b-8fd3-497fb8901b64"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Apply_to_each": {
+          "foreach": "@outputs('Get_items')?['body/value']",
+          "actions": {
+            "Condition": {
+              "actions": {
+                "Send_an_email_(V2)": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "06f0eae1-47be-4b04-bc88-bcd333bfba50"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{items('Apply_to_each')?['E_x002d_Mail']}; ",
+                      "emailMessage/Subject": "2nd Reminder- @{items('Apply_to_each')?['Add_x002f_Delete_x002f_Change']} @{items('Apply_to_each')?['Item_x0023_']} Explanation Needed -",
+                      "emailMessage/Body": "<p>Hi,<br>\nThe journal entry made on @{items('Apply_to_each')?['Journal_x0020_Date']} to @{items('Apply_to_each')?['Add_x002f_Delete_x002f_Change']} account @{items('Apply_to_each')?['Item_x0023_']} for @{items('Apply_to_each')?['BusUnit']} requires an explanation. Please use the following link to submit and send for approval.<br>\n<br>\nhttps://apps.powerapps.com/play/e/default-be702899-adb0-4f70-a46a-8c9219608ab8/a/116fdd28-2323-487b-8e28-594e080a9e46?tenantId=be702899-adb0-4f70-a46a-8c9219608ab8&amp;hint=278c4e54-b89a-4926-a3d3-4636016138cb&amp;sourcetime=1710430061279<br>\n<br>\nThank you,</p>",
+                      "emailMessage/From": "DJGL_.MSPowerToolsSVC@dorel.com",
+                      "emailMessage/Cc": "OPedersen@djgusa.com",
+                      "emailMessage/Importance": "High"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {},
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@items('Apply_to_each')?['Explanation']",
+                      ""
+                    ]
+                  },
+                  {
+                    "less": [
+                      "@items('Apply_to_each')?['Created']",
+                      "@addDays(utcNow(),-5)"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "476b67c8-48d8-4d6d-b243-94b4fe8f58a6"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Get_items": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7f59db16-9fa6-4453-a86e-23d846570173"
+          },
+          "type": "Foreach"
+        },
+        "Get_items_2": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "feab0593-61f9-4af0-85e0-40b937afdc22"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "67bf55a4-3a77-4f0d-8f74-f3b195bf6ff0"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Apply_to_each_2": {
+          "foreach": "@outputs('Get_items_2')?['body/value']",
+          "actions": {
+            "Condition_2": {
+              "actions": {
+                "Send_an_email_(V2)_2": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "b854bcff-4c28-4b41-9ac9-d1661f82a755"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{items('Apply_to_each_2')?['E_x002d_Mail']}; ",
+                      "emailMessage/Subject": "2nd Reminder-  @{items('Apply_to_each_2')?['InvalidBusinessUnit']} Explanation Needed",
+                      "emailMessage/Body": "<p>Hi,<br>\nThe journal entry made with an invalid business unit, @{items('Apply_to_each_2')?['InvalidBusinessUnit']} and invalid level of detail, @{items('Apply_to_each_2')?['InvalidLevelofDetail']} requires an explanation. Please use the following link to submit and send for approval.<br>\n<br>\nhttps://apps.powerapps.com/play/e/default-be702899-adb0-4f70-a46a-8c9219608ab8/a/116fdd28-2323-487b-8e28-594e080a9e46?tenantId=be702899-adb0-4f70-a46a-8c9219608ab8&amp;hint=278c4e54-b89a-4926-a3d3-4636016138cb&amp;sourcetime=1710430061279<br>\n<br>\nThank you,</p>",
+                      "emailMessage/From": "DJGL_.MSPowerToolsSVC@dorel.com",
+                      "emailMessage/Cc": "OPedersen@djgusa.com",
+                      "emailMessage/Importance": "High"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {},
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@items('Apply_to_each_2')?['Explanation']",
+                      ""
+                    ]
+                  },
+                  {
+                    "less": [
+                      "@items('Apply_to_each_2')?['Created']",
+                      "@addDays(utcNow(), -5)"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f29a52fe-97f6-4992-9007-072c8beac084"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Get_items_2": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "468d490f-5e0e-4a04-b981-d7294508674e"
+          },
+          "type": "Foreach"
+        },
+        "Get_items_3": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "91505f7c-f489-4987-a771-1aacfb3e209d"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "b2f96435-885c-45ec-8342-e6a0bca73680"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Apply_to_each_3": {
+          "foreach": "@outputs('Get_items_3')?['body/value']",
+          "actions": {
+            "Condition_3": {
+              "actions": {
+                "Send_an_email_(V2)_3": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "8e2b49de-cd21-4161-8827-c8d7bf2ea270"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{items('Apply_to_each_3')?['E_x002d_Mail']}; ",
+                      "emailMessage/Subject": "2nd Reminder- @{items('Apply_to_each_3')?['Item_x0023_']} Explanation Needed",
+                      "emailMessage/Body": "<p>Hi,<br>\nThe journal entry made on @{items('Apply_to_each_3')?['Journal_x0020_Date']} to @{items('Apply_to_each_3')?['BusUnit']}<br>\nfor @{items('Apply_to_each_3')?['Item_x0023_']}requires an explanation. Please use the following link to submit and send for approval.<br>\n<br>\nhttps://apps.powerapps.com/play/e/default-be702899-adb0-4f70-a46a-8c9219608ab8/a/116fdd28-2323-487b-8e28-594e080a9e46?tenantId=be702899-adb0-4f70-a46a-8c9219608ab8&amp;hint=278c4e54-b89a-4926-a3d3-4636016138cb&amp;sourcetime=1710430061279<br>\n<br>\nThank you,</p>",
+                      "emailMessage/From": "DJGL_.MSPowerToolsSVC@dorel.com",
+                      "emailMessage/Cc": "OPedersen@djgusa.com",
+                      "emailMessage/Importance": "High"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {},
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@items('Apply_to_each_3')?['Explanation']",
+                      ""
+                    ]
+                  },
+                  {
+                    "less": [
+                      "@items('Apply_to_each_3')?['Created']",
+                      "@addDays(utcNow(), -5)"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "07f8aa0e-9b1c-41b0-b215-7767f9d7ae8a"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Get_items_3": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a567c6e9-4bbe-499c-b189-514cd628f6c9"
+          },
+          "type": "Foreach"
+        },
+        "Get_items_4": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "abf2321b-ae8a-4570-a559-0664dc6c2d7e"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "bae386cf-bb7f-4e19-b442-750d0e698bf3"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Apply_to_each_4": {
+          "foreach": "@outputs('Get_items_4')?['body/value']",
+          "actions": {
+            "Condition_4": {
+              "actions": {
+                "Send_an_email_(V2)_4": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "ff4f3b95-c4c3-4bdf-a9cc-f838b50a6e34"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{items('Apply_to_each_4')?['E_x002d_Mail']}; ",
+                      "emailMessage/Subject": "2nd Reminder- Explanation Needed for Batch @{items('Apply_to_each_4')?['BatchNumber']}",
+                      "emailMessage/Body": "<p>Hi,<br>\n@{items('Apply_to_each_4')?['BatchNumber']} approved on @{items('Apply_to_each_4')?['ApprovalDate']}requires an explanation. Please use the following link to submit and send for approval.<br>\n<br>\nhttps://apps.powerapps.com/play/e/default-be702899-adb0-4f70-a46a-8c9219608ab8/a/116fdd28-2323-487b-8e28-594e080a9e46?tenantId=be702899-adb0-4f70-a46a-8c9219608ab8&amp;hint=278c4e54-b89a-4926-a3d3-4636016138cb&amp;sourcetime=1710430061279<br>\n<br>\nThank you,</p>",
+                      "emailMessage/From": "DJGL_.MSPowerToolsSVC@dorel.com",
+                      "emailMessage/Cc": "OPedersen@djgusa.com",
+                      "emailMessage/Importance": "High"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {},
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@items('Apply_to_each_4')?['Explanation']",
+                      ""
+                    ]
+                  },
+                  {
+                    "less": [
+                      "@items('Apply_to_each_4')?['Created']",
+                      "@addDays(utcNow(), -5)"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "4ea856ee-17fa-4bd6-8606-ac0768e60841"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Get_items_4": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "9fbac6c3-e7b5-4771-981d-1885dfd6845d"
+          },
+          "type": "Foreach"
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,175 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedsharepointonline_ce551"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "dju_sharedoffice365_ce05c"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "fc2523b4-4e17-4471-ac4d-15d7221158c4"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnNewItems"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "bae386cf-bb7f-4e19-b442-750d0e698bf3"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Get_items": {
+          "runAfter": {
+            "Get_item": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "2e7926dd-b6c3-4a78-b4d1-751f4fb0282c"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "6d94afb1-1a32-4d9b-843a-cc56734cd13a",
+              "$filter": "Title eq '@{outputs('Get_item')?['body/ApproverUserID']}'"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Apply_to_each": {
+          "foreach": "@outputs('Get_items')?['body/value']",
+          "actions": {
+            "Update_item": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "daef3c1c-0e98-4c50-9569-979ea63d44a4"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+                  "table": "bae386cf-bb7f-4e19-b442-750d0e698bf3",
+                  "id": "@triggerOutputs()?['body/ID']",
+                  "item/BatchNumber": "@triggerOutputs()?['body/BatchNumber']",
+                  "item/ApprovalDate": "@triggerOutputs()?['body/ApprovalDate']",
+                  "item/EMail": "@items('Apply_to_each')?['UserEmail']",
+                  "item/Approved": false,
+                  "item/User_x0020_Name/Value": ""
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Send_an_email_(V2)": {
+              "runAfter": {
+                "Update_item": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "62186087-42a9-4c5f-9657-409354dadcd7"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365",
+                  "operationId": "SendEmailV2"
+                },
+                "parameters": {
+                  "emailMessage/To": "@outputs('Update_item')?['body/EMail']",
+                  "emailMessage/Subject": "Batch Exception",
+                  "emailMessage/Body": "<p>Hi @{items('Apply_to_each')?['FirstName']},<br>\nPlease use the following link to provide an exceptions explanation for<br>\nBatch #@{outputs('Get_item')?['body/BatchNumber']}, approved on @{outputs('Get_item')?['body/ApprovalDate']} .<br>\n<br>\n<a href=\"https://apps.powerapps.com/play/e/default-be702899-adb0-4f70-a46a-8c9219608ab8/a/116fdd28-2323-487b-8e28-594e080a9e46?tenantId=be702899-adb0-4f70-a46a-8c9219608ab8&amp;hint=278c4e54-b89a-4926-a3d3-4636016138cb&amp;sourcetime=1709929331019\">Exceptions Reporting</a><br>\n<br>\nThank you,<br>\n</p>",
+                  "emailMessage/Importance": "High"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {
+            "Get_items": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "55142cde-ac26-40b6-8f2f-12ab1e81af18"
+          },
+          "type": "Foreach"
+        },
+        "Get_item": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "aaea1878-2c73-4803-a1a5-2e99f5cb4af4"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItem"
+            },
+            "parameters": {
+              "dataset": "https://dorel1.sharepoint.com/teams/CATAPULTEXP",
+              "table": "bae386cf-bb7f-4e19-b442-750d0e698bf3",
+              "id": "@triggerOutputs()?['body/ID']"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}
